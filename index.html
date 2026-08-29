@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Installationsintyg-portal</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#00e5c0">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">INSTALLATIONSINTYG<span>Avloppsanläggning</span></div>
+  <div class="topbar-actions hidden" id="topbarUser">
+    <span id="netStatusDot" class="net-dot" title="Nätstatus"></span>
+    <span id="syncBadge" class="sync-badge hidden"></span>
+    <button class="btn-ghost" id="btnSyncNow">Synka nu</button>
+    <span id="topbarUserName" style="font-size:12px;color:var(--muted);"></span>
+    <button class="btn-ghost" id="btnLogout">Logga ut</button>
+  </div>
+</div>
+
+<!-- ================= AUTH VIEW ================= -->
+<div id="view-auth" class="wrapper">
+  <header class="page-header">
+    <h1>Logga in</h1>
+    <p>Ett konto per firma — upp till 6 användare</p>
+  </header>
+
+  <div id="authError" class="auth-error hidden"></div>
+  <div id="authNotice" class="auth-notice hidden"></div>
+
+  <div id="loginSignupBlock">
+    <div class="auth-tabs">
+      <button id="tabLogin" class="active" type="button">Logga in</button>
+      <button id="tabSignup" type="button">Skapa konto</button>
+    </div>
+
+    <form id="loginForm">
+      <div class="field-group">
+        <label>E-post <span class="req">*</span></label>
+        <input type="email" id="loginEmail" required>
+      </div>
+      <div class="field-group">
+        <label>Lösenord <span class="req">*</span></label>
+        <input type="password" id="loginPassword" required>
+      </div>
+      <button type="submit" class="primary-btn">Logga in</button>
+    </form>
+
+    <form id="signupForm" class="hidden">
+      <div class="field-group">
+        <label>E-post <span class="req">*</span></label>
+        <input type="email" id="signupEmail" required>
+      </div>
+      <div class="field-group">
+        <label>Lösenord (minst 6 tecken) <span class="req">*</span></label>
+        <input type="password" id="signupPassword" required minlength="6">
+      </div>
+      <button type="submit" class="primary-btn">Skapa konto</button>
+      <p class="hint">Efter kontot är skapat väljer du om du ska skapa en ny firma eller gå med i en befintlig.</p>
+    </form>
+  </div>
+
+  <!-- Visas när inloggad men saknar firmakoppling -->
+  <div id="orgSetupBlock" class="hidden">
+    <div class="infobox">Ditt konto är skapat. Nu behöver du antingen skapa en ny firma, eller gå med i en firma som redan finns i systemet.</div>
+
+    <div class="grid-2" style="margin-bottom:1.4rem;">
+      <button id="orgChoiceCreate" type="button" class="secondary-btn" style="margin-top:0;">Skapa ny firma</button>
+      <button id="orgChoiceJoin" type="button" class="secondary-btn" style="margin-top:0;">Gå med i firma</button>
+    </div>
+
+    <form id="createOrgForm">
+      <div class="field-group">
+        <label>Firmanamn <span class="req">*</span></label>
+        <input type="text" id="orgName" required>
+      </div>
+      <div class="field-group">
+        <label>Organisationsnummer <span class="req">*</span></label>
+        <input type="text" id="orgNumber" required>
+      </div>
+      <div class="field-group">
+        <label>Ditt namn <span class="req">*</span></label>
+        <input type="text" id="orgFullName" required>
+      </div>
+      <button type="submit" class="primary-btn">Skapa firma</button>
+    </form>
+
+    <form id="joinOrgForm" class="hidden">
+      <div class="field-group">
+        <label>Organisationsnummer <span class="req">*</span></label>
+        <input type="text" id="joinOrgNumber" required>
+      </div>
+      <div class="field-group">
+        <label>Inbjudningskod <span class="req">*</span></label>
+        <input type="text" id="joinInviteCode" required>
+        <p class="hint">Fråga firmans ägare (den som skapade kontot) om koden.</p>
+      </div>
+      <div class="field-group">
+        <label>Ditt namn <span class="req">*</span></label>
+        <input type="text" id="joinFullName" required>
+      </div>
+      <button type="submit" class="primary-btn">Gå med</button>
+    </form>
+  </div>
+</div>
+
+<!-- ================= DASHBOARD VIEW ================= -->
+<div id="view-dashboard" class="wrapper hidden">
+  <header class="page-header">
+    <h1>Mina intyg</h1>
+    <p>Installationsintyg för avloppsanläggningar</p>
+  </header>
+
+  <div class="org-select-bar hidden" id="orgFilterBar">
+    <div class="field-group" style="margin-bottom:0;">
+      <label>Filtrera på firma (admin)</label>
+      <select id="orgFilterSelect"></select>
+    </div>
+  </div>
+
+  <div class="dash-toolbar">
+    <h2 id="certCount"></h2>
+    <button class="primary-btn" id="btnNewCertificate" style="margin:0;width:auto;padding:0.7rem 1.2rem;">+ Nytt intyg</button>
+  </div>
+
+  <div id="certList"></div>
+</div>
+
+<!-- ================= EDITOR VIEW ================= -->
+<div id="view-editor" class="wrapper hidden">
+  <div style="display:flex;gap:0.6rem;margin-bottom:1.5rem;">
+    <button class="btn-ghost" id="btnBackToDash">← Tillbaka</button>
+    <button class="btn-ghost" id="btnPrint">Skriv ut / PDF</button>
+  </div>
+
+  <header class="page-header">
+    <h1>Installationsintyg<br>Avloppsanläggning</h1>
+    <p>Fält markerade med * är obligatoriska</p>
+  </header>
+
+  <form id="certForm" onsubmit="return false;">
+
+    <!-- ── INSTALLATÖR ── -->
+    <div class="section-header">Installatör</div>
+
+    <div class="field-group">
+      <label>Firma <span class="req">*</span></label>
+      <input type="text" name="firma" required>
+    </div>
+
+    <div class="grid-2">
+      <div class="field-group">
+        <label>Förnamn <span class="req">*</span></label>
+        <input type="text" name="fornamn" required>
+      </div>
+      <div class="field-group">
+        <label>Efternamn <span class="req">*</span></label>
+        <input type="text" name="efternamn" required>
+      </div>
+    </div>
+
+    <div class="field-group">
+      <label>E-postadress <span class="req">*</span></label>
+      <input type="email" name="email" required>
+    </div>
+
+    <div class="field-group">
+      <label>Telefonnummer <span class="req">*</span></label>
+      <input type="tel" name="telefon" required>
+    </div>
+
+    <div class="field-group">
+      <label>Fakturaadress – Linje 1 <span class="req">*</span></label>
+      <input type="text" name="faktura_linje1" required>
+    </div>
+    <div class="field-group">
+      <label>Fakturaadress – Linje 2</label>
+      <input type="text" name="faktura_linje2">
+    </div>
+    <div class="grid-3">
+      <div class="field-group">
+        <label>Stad <span class="req">*</span></label>
+        <input type="text" name="faktura_stad" required>
+      </div>
+      <div class="field-group">
+        <label>Postnummer <span class="req">*</span></label>
+        <input type="text" name="faktura_postnr" required>
+      </div>
+    </div>
+
+    <!-- ── INSTALLATIONSADRESS ── -->
+    <div class="section-header">Installationsadress</div>
+
+    <div class="field-group">
+      <label>Namn fastighetsägare <span class="req">*</span></label>
+      <input type="text" name="fastighetsagare" required>
+    </div>
+    <div class="field-group">
+      <label>E-postadress <span class="req">*</span></label>
+      <input type="email" name="fastighets_email" required>
+    </div>
+    <div class="field-group">
+      <label>Telefonnummer <span class="req">*</span></label>
+      <input type="tel" name="fastighets_telefon" required>
+    </div>
+
+    <div class="infobox">
+      <strong>Adress 1</strong> = installationsadress &nbsp;|&nbsp; <strong>Adress 2</strong> = annan bostadsadress om tillämpligt
+    </div>
+
+    <div class="field-group">
+      <label>Adress 1 – Linje 1 <span class="req">*</span></label>
+      <input type="text" name="adress1_linje1" required>
+    </div>
+    <div class="field-group">
+      <label>Adress 1 – Linje 2</label>
+      <input type="text" name="adress1_linje2">
+    </div>
+    <div class="grid-3">
+      <div class="field-group">
+        <label>Stad <span class="req">*</span></label>
+        <input type="text" name="adress1_stad" required>
+      </div>
+      <div class="field-group">
+        <label>Postnummer <span class="req">*</span></label>
+        <input type="text" name="adress1_postnr" required>
+      </div>
+    </div>
+
+    <div class="field-group">
+      <label>Adress 2 – Linje 1</label>
+      <input type="text" name="adress2_linje1">
+    </div>
+    <div class="field-group">
+      <label>Adress 2 – Linje 2</label>
+      <input type="text" name="adress2_linje2">
+    </div>
+    <div class="grid-3">
+      <div class="field-group">
+        <label>Stad</label>
+        <input type="text" name="adress2_stad">
+      </div>
+      <div class="field-group">
+        <label>Postnummer</label>
+        <input type="text" name="adress2_postnr">
+      </div>
+    </div>
+
+    <div class="field-group">
+      <label>Fastighetsbeteckning <span class="req">*</span></label>
+      <input type="text" name="fastighetsbeteckning" required>
+    </div>
+
+    <div class="field-group">
+      <label>GPS-position (installationsplats)</label>
+      <div class="grid-2">
+        <input type="text" name="gps_lat" placeholder="Latitud" oninput="updateGpsStatus()">
+        <input type="text" name="gps_lng" placeholder="Longitud" oninput="updateGpsStatus()">
+      </div>
+      <input type="hidden" name="gps_accuracy_m">
+      <input type="hidden" name="gps_captured_at">
+      <div style="display:flex;gap:0.6rem;align-items:center;margin-top:0.6rem;flex-wrap:wrap;">
+        <button type="button" class="btn-ghost" id="btnGpsCapture">📍 Hämta position nu</button>
+        <a href="#" id="gpsMapLink" target="_blank" rel="noopener" class="hint hidden" style="text-decoration:underline;">Visa på karta</a>
+      </div>
+      <p class="hint" id="gpsStatus"></p>
+      <p class="hint">Hämtas automatiskt för nya intyg om enheten tillåter GPS. Går även att fylla i eller rätta manuellt i efterhand.</p>
+    </div>
+
+    <!-- ── ANLÄGGNING ── -->
+    <div class="section-header">Anläggning</div>
+
+    <div class="field-group">
+      <label>Läggningsanvisningar har följts <span class="req">*</span></label>
+      <div class="check-group">
+        <label>
+          <input type="checkbox" name="laggningsanvisningar" required>
+          Härmed intygas att läggningsanvisningarna lästs och följts (inkl. övriga anvisningar/dokument)
+        </label>
+      </div>
+    </div>
+
+    <div class="field-group">
+      <label>Typ av anläggning <span class="req">*</span></label>
+      <div class="radio-group">
+        <label><input type="radio" name="typ_anlaggning" value="Infiltration/Markbädd"> Infiltration / Markbädd</label>
+        <label><input type="radio" name="typ_anlaggning" value="Easy med infiltration"> Easy med infiltration</label>
+        <label><input type="radio" name="typ_anlaggning" value="Easy med markbädd"> Easy med markbädd</label>
+        <label><input type="radio" name="typ_anlaggning" value="BioTank"> BioTank</label>
+        <label><input type="radio" name="typ_anlaggning" value="BioFicient"> BioFicient</label>
+        <label><input type="radio" name="typ_anlaggning" value="BioDisc"> BioDisc</label>
+        <label><input type="radio" name="typ_anlaggning" value="Annat"> Annat:</label>
+      </div>
+      <input type="text" name="typ_anlaggning_annat" placeholder="Ange typ…" style="margin-top:0.5rem;">
+    </div>
+
+    <div class="field-group">
+      <label>Anläggningsdatum <span class="req">*</span></label>
+      <input type="date" name="anlaggningsdatum" required>
+    </div>
+
+    <div class="grid-2">
+      <div class="field-group">
+        <label>Antal hushåll <span class="req">*</span></label>
+        <input type="number" name="antal_hushall" min="1" required>
+      </div>
+      <div class="field-group">
+        <label>Inköpt från</label>
+        <input type="text" name="inkopt_fran">
+      </div>
+    </div>
+
+    <div class="field-group">
+      <label>Bruksdatum</label>
+      <input type="date" name="bruksdatum">
+    </div>
+
+    <div class="field-group">
+      <label>SIM-kortsnummer</label>
+      <input type="text" name="sim_kort">
+    </div>
+
+    <div class="field-group">
+      <label>Permanent boende <span class="req">*</span></label>
+      <div class="radio-group row">
+        <label><input type="radio" name="permanent_boende" value="Ja"> Ja</label>
+        <label><input type="radio" name="permanent_boende" value="Nej"> Nej</label>
+      </div>
+    </div>
+
+    <div class="field-group">
+      <label>Är ventilationen verifierad <span class="req">*</span></label>
+      <div class="radio-group row">
+        <label><input type="radio" name="ventilation_verifierad" value="Ja"> Ja</label>
+        <label><input type="radio" name="ventilation_verifierad" value="Nej"> Nej</label>
+      </div>
+    </div>
+
+    <!-- ── TILLSTÅND ── -->
+    <div class="section-header">Tillstånd</div>
+
+    <div class="field-group">
+      <label>Tillståndsnr <span class="req">*</span></label>
+      <input type="text" name="tillstandsnr" required>
+    </div>
+    <div class="field-group">
+      <label>Handläggare <span class="req">*</span></label>
+      <input type="text" name="handlaggare" required>
+    </div>
+    <div class="field-group">
+      <label>Kommun <span class="req">*</span></label>
+      <input type="text" name="kommun" required>
+    </div>
+    <div class="field-group">
+      <label>Kräver rapportering</label>
+      <input type="text" name="kraver_rapportering">
+    </div>
+
+    <!-- ── MARKBESKAFFENHET ── -->
+    <div class="section-header">Markbeskaffenhet</div>
+
+    <div class="field-group">
+      <label>Grundvatten djup <span class="req">*</span></label>
+      <div class="input-unit">
+        <input type="number" name="grundvatten_djup" step="0.1" required>
+        <span>m</span>
+      </div>
+    </div>
+
+    <div class="field-group">
+      <label>Typ av mark <span class="req">*</span></label>
+      <input type="text" name="typ_mark" placeholder="ex. lera">
+    </div>
+
+    <div class="field-group">
+      <label>Siktkurva <span class="req">*</span></label>
+      <div class="radio-group row">
+        <label><input type="radio" name="siktkurva" value="Ja"> Ja</label>
+        <label><input type="radio" name="siktkurva" value="Nej"> Nej</label>
+      </div>
+    </div>
+
+    <div class="field-group">
+      <label>LTAR-värde</label>
+      <input type="text" name="ltar_varde">
+    </div>
+
+    <!-- ── TANKAR ── -->
+    <div class="section-header">Tankar</div>
+
+    <div class="infobox warn">
+      ⚠ Före nedgrävning — granska varje tank noga. Skador på tank och anslutningar SKA dokumenteras genom fotografering (se fotosektionen nedan) och rapporteras!
+    </div>
+
+    <div class="tank-block">
+      <h3>Tank 1</h3>
+      <div class="field-group">
+        <label>Förankring</label>
+        <div class="check-group">
+          <label><input type="checkbox" name="t1_gjuten_platta"> Gjuten platta</label>
+          <label><input type="checkbox" name="t1_balkar"> Balkar</label>
+          <label><input type="checkbox" name="t1_jordankare"> Jordankare</label>
+          <label><input type="checkbox" name="t1_textilsvepning"> Textilsvepning</label>
+          <label><input type="checkbox" name="t1_kjolgjutning"> Kjolgjutning</label>
+          <label><input type="checkbox" name="t1_annat_cb"> Annat:</label>
+        </div>
+        <input type="text" name="t1_annat_text" placeholder="Beskriv…" style="margin-top:0.5rem;">
+      </div>
+      <div class="field-group">
+        <label>Vägg klädd med geotextil el liknande</label>
+        <div class="radio-group row">
+          <label><input type="radio" name="t1_geotextil" value="Ja"> Ja</label>
+          <label><input type="radio" name="t1_geotextil" value="Nej"> Nej</label>
+        </div>
+      </div>
+      <div class="field-group">
+        <label>Tilloppsledning ventilerad över tak</label>
+        <div class="radio-group row">
+          <label><input type="radio" name="t1_ventilerad" value="Ja"> Ja</label>
+          <label><input type="radio" name="t1_ventilerad" value="Nej"> Nej</label>
+        </div>
+      </div>
+      <div class="field-group">
+        <label>Inlopp från markytan</label>
+        <div class="input-unit"><input type="number" name="t1_inlopp_markytan"><span>cm</span></div>
+      </div>
+    </div>
+
+    <div class="tank-block">
+      <h3>Tank 2</h3>
+      <div class="field-group">
+        <label>Förankring</label>
+        <div class="check-group">
+          <label><input type="checkbox" name="t2_gjuten_platta"> Gjuten platta</label>
+          <label><input type="checkbox" name="t2_balkar"> Balkar</label>
+          <label><input type="checkbox" name="t2_jordankare"> Jordankare</label>
+          <label><input type="checkbox" name="t2_textilsvepning"> Textilsvepning</label>
+          <label><input type="checkbox" name="t2_kjolgjutning"> Kjolgjutning</label>
+          <label><input type="checkbox" name="t2_annat_cb"> Annat:</label>
+        </div>
+        <input type="text" name="t2_annat_text" placeholder="Beskriv…" style="margin-top:0.5rem;">
+      </div>
+      <div class="field-group">
+        <label>Vägg klädd med geotextil el liknande</label>
+        <div class="radio-group row">
+          <label><input type="radio" name="t2_geotextil" value="Ja"> Ja</label>
+          <label><input type="radio" name="t2_geotextil" value="Nej"> Nej</label>
+        </div>
+      </div>
+      <div class="field-group">
+        <label>Tilloppsledning ventilerad över tak</label>
+        <div class="radio-group row">
+          <label><input type="radio" name="t2_ventilerad" value="Ja"> Ja</label>
+          <label><input type="radio" name="t2_ventilerad" value="Nej"> Nej</label>
+        </div>
+      </div>
+      <div class="field-group">
+        <label>Inlopp från markytan</label>
+        <div class="input-unit"><input type="number" name="t2_inlopp_markytan"><span>cm</span></div>
+      </div>
+    </div>
+
+    <div class="tank-block">
+      <h3>Tank 3</h3>
+      <div class="field-group">
+        <label>Förankring</label>
+        <div class="check-group">
+          <label><input type="checkbox" name="t3_gjuten_platta"> Gjuten platta</label>
+          <label><input type="checkbox" name="t3_balkar"> Balkar</label>
+          <label><input type="checkbox" name="t3_jordankare"> Jordankare</label>
+          <label><input type="checkbox" name="t3_textilsvepning"> Textilsvepning</label>
+          <label><input type="checkbox" name="t3_kjolgjutning"> Kjolgjutning</label>
+          <label><input type="checkbox" name="t3_annat_cb"> Annat:</label>
+        </div>
+        <input type="text" name="t3_annat_text" placeholder="Beskriv…" style="margin-top:0.5rem;">
+      </div>
+      <div class="field-group">
+        <label>Vägg klädd med geotextil eller liknande</label>
+        <div class="radio-group row">
+          <label><input type="radio" name="t3_geotextil" value="Ja"> Ja</label>
+          <label><input type="radio" name="t3_geotextil" value="Nej"> Nej</label>
+        </div>
+      </div>
+      <div class="field-group">
+        <label>Tilloppsledning ventilerad över tak</label>
+        <div class="radio-group row">
+          <label><input type="radio" name="t3_ventilerad" value="Ja"> Ja</label>
+          <label><input type="radio" name="t3_ventilerad" value="Nej"> Nej</label>
+        </div>
+      </div>
+      <div class="field-group">
+        <label>Inlopp från markytan</label>
+        <div class="input-unit"><input type="number" name="t3_inlopp_markytan"><span>cm</span></div>
+      </div>
+    </div>
+
+    <!-- ── RECIPIENT ── -->
+    <div class="section-header">Recipient</div>
+
+    <div class="field-group">
+      <label>Typ av recipient</label>
+      <div class="check-group">
+        <label><input type="checkbox" name="rec_infiltration"> Infiltration</label>
+        <label><input type="checkbox" name="rec_oppet_dike"> Öppet dike</label>
+        <label><input type="checkbox" name="rec_tackt_dike"> Täckt dike (meter)</label>
+        <label><input type="checkbox" name="rec_sjo"> Sjö</label>
+        <label><input type="checkbox" name="rec_back"> Bäck</label>
+        <label><input type="checkbox" name="rec_annat_cb"> Annat:</label>
+      </div>
+      <input type="text" name="rec_annat_text" placeholder="Beskriv…" style="margin-top:0.5rem;">
+    </div>
+
+    <div class="field-group">
+      <label>Mått av bädd</label>
+      <div class="input-unit"><input type="text" name="matt_badd"><span>m</span></div>
+    </div>
+
+    <div class="field-group">
+      <label>Spridningsledningar höjd över högsta grundvattenyta</label>
+      <div class="input-unit"><input type="number" name="spridning_hojd"><span>cm</span></div>
+    </div>
+
+    <div class="grid-2">
+      <div class="field-group">
+        <label>Höjd spridningslager <span class="req">*</span></label>
+        <div class="input-unit"><input type="number" name="spridningslager_hojd" required><span>cm</span></div>
+      </div>
+      <div class="field-group">
+        <label>Fraktion</label>
+        <input type="text" name="spridningslager_fraktion">
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="field-group">
+        <label>Höjd markbäddslager</label>
+        <div class="input-unit"><input type="number" name="markbadd_hojd"><span>cm</span></div>
+      </div>
+      <div class="field-group">
+        <label>Fraktion</label>
+        <input type="text" name="markbadd_fraktion">
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="field-group">
+        <label>Höjd materialskiljande skikt</label>
+        <div class="input-unit"><input type="number" name="matskiljande_hojd"><span>cm</span></div>
+      </div>
+      <div class="field-group">
+        <label>Fraktion</label>
+        <input type="text" name="matskiljande_fraktion">
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="field-group">
+        <label>Höjd dräneringslager</label>
+        <div class="input-unit"><input type="number" name="dranering_hojd"><span>cm</span></div>
+      </div>
+      <div class="field-group">
+        <label>Fraktion</label>
+        <input type="text" name="dranering_fraktion">
+      </div>
+    </div>
+
+    <div class="field-group">
+      <label>Frostbrytande lager</label>
+      <div class="radio-group row">
+        <label><input type="radio" name="frostbrytande" value="Ja"> Ja</label>
+        <label><input type="radio" name="frostbrytande" value="Nej"> Nej</label>
+      </div>
+    </div>
+
+    <div class="field-group">
+      <label>Bädd – typ</label>
+      <div class="check-group">
+        <label><input type="checkbox" name="badd_infiltration"> Infiltration</label>
+        <label><input type="checkbox" name="badd_gummi"> Markbädd med gummi-membran</label>
+        <label><input type="checkbox" name="badd_utan_gummi"> Markbädd utan gummi-membran</label>
+        <label><input type="checkbox" name="badd_hygienisering"> Hygienisering</label>
+      </div>
+    </div>
+
+    <!-- ── STYRSKÅP ── -->
+    <div class="section-header">Styrskåp</div>
+
+    <div class="field-group">
+      <label>Avstånd till anläggning</label>
+      <div class="check-group">
+        <label><input type="checkbox" name="avstand_utomhus"> Utomhus</label>
+        <label><input type="checkbox" name="avstand_inomhus"> Inomhus</label>
+        <label><input type="checkbox" name="avstand_servicehus"> Servicehus</label>
+      </div>
+      <p class="hint">Avstånd i meter</p>
+      <input type="number" name="avstand_meter" placeholder="Meter" style="margin-top:0.5rem;">
+    </div>
+
+    <div class="field-group">
+      <label>Pumppaket</label>
+      <div class="radio-group row">
+        <label><input type="radio" name="pumppaket" value="Ja"> Ja</label>
+        <label><input type="radio" name="pumppaket" value="Nej"> Nej</label>
+      </div>
+    </div>
+
+    <div class="field-group">
+      <label>Larmpaket</label>
+      <div class="radio-group row">
+        <label><input type="radio" name="larmpaket" value="Ja"> Ja</label>
+        <label><input type="radio" name="larmpaket" value="Nej"> Nej</label>
+      </div>
+    </div>
+
+    <!-- ── FOTOGRAFIER ── -->
+    <div class="section-header">Fotografier</div>
+    <div class="infobox">
+      Ta alla bilder i god belysning med tydligt referensobjekt (tumstock, spade, skylt) för skalangivelse. Foton laddas upp direkt till respektive intyg och sparas i molnet.
+    </div>
+    <div id="photoCategories"></div>
+
+    <hr class="divider">
+
+    <!-- ── UNDERSKRIFT ── -->
+    <div class="field-group">
+      <label>Övriga kommentarer / avvikelser från ritning</label>
+      <textarea name="ovriga_kommentarer" rows="4"></textarea>
+    </div>
+
+    <div class="field-group">
+      <label>Underskrift – Härmed intygar jag att ovanstående uppgifter stämmer</label>
+      <div class="signature-area" id="sigPad">
+        <canvas id="sigCanvas"></canvas>
+        <div class="sig-line"></div>
+        <span class="sig-hint">Rita din signatur här</span>
+        <button type="button" class="sig-reset">nollställ</button>
+      </div>
+    </div>
+
+    <div class="field-group">
+      <label>Datum <span class="req">*</span></label>
+      <input type="date" name="datum_underskrift" required>
+    </div>
+
+    <button type="button" class="submit-btn" id="btnMarkDone">Spara och markera klar</button>
+    <button type="button" class="secondary-btn" id="btnSaveCertificate">Spara utkast</button>
+    <button type="button" class="secondary-btn" id="btnDeleteCertificate" style="color:var(--danger);border-color:var(--danger);">Ta bort intyg</button>
+
+  </form>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
